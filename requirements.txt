@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+huggingface_hub
+python-multipart
+toml
+jinja2
+requests

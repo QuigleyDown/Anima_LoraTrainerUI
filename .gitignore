@@ -1,0 +1,25 @@
+# OS virtual environments
+venv/
+.venv/
+env/
+
+# Data and Models (Very large files)
+data/
+sd-scripts/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment variables
+.env
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

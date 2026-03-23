@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anima Preview 2 LoRA Trainer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .terminal {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            height: 600px;
+            overflow-y: auto;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Anima Preview 2 LoRA Trainer</h1>
+            <p class="text-gray-600">Tailored LoRA training for the Anima image diffusion model</p>
+        </header>
+
+        <nav class="flex space-x-4 mb-8 border-b border-gray-300 pb-2">
+            <button onclick="showTab('models')" class="tab-btn px-4 py-2 font-medium text-gray-600 hover:text-blue-600" id="btn-models">Models</button>
+            <button onclick="showTab('datasets')" class="tab-btn px-4 py-2 font-medium text-gray-600 hover:text-blue-600" id="btn-datasets">Datasets</button>
+            <button onclick="showTab('train')" class="tab-btn px-4 py-2 font-medium text-gray-600 hover:text-blue-600" id="btn-train">Training</button>
+            <button onclick="showTab('outputs')" class="tab-btn px-4 py-2 font-medium text-gray-600 hover:text-blue-600" id="btn-outputs">Outputs</button>
+        </nav>
+
+        <!-- Models Tab -->
+        <div id="tab-models" class="tab-content">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">Anima Preview 2 Base Models</h2>
+                <div id="models-list" class="space-y-4 mb-6">
+                    <!-- Model status items will go here -->
+                </div>
+                <button onclick="downloadModels()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50" id="download-btn">
+                    Download Missing Models
+                </button>
+            </div>
+        </div>
+
+        <!-- Datasets Tab -->
+        <div id="tab-datasets" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">Manage Datasets</h2>
+                
+                <div class="mb-8 p-4 border-2 border-dashed border-gray-300 rounded-lg">
+                    <h3 class="font-medium mb-2">Upload New Dataset</h3>
+                    <div class="flex flex-col space-y-4">
+                        <input type="text" id="dataset-name" placeholder="Dataset Name (e.g. my-character)" class="border p-2 rounded">
+                        <input type="file" id="dataset-files" multiple accept="image/*,.txt" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        <button onclick="uploadDataset()" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 w-fit">Upload</button>
+                    </div>
+                </div>
+
+                <h3 class="font-medium mb-2">Existing Datasets</h3>
+                <ul id="datasets-list" class="divide-y divide-gray-200">
+                    <!-- Datasets will go here -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- Training Tab -->
+        <div id="tab-train" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Config Form -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-xl font-semibold mb-4">Training Configuration</h2>
+                    <form id="train-form" onsubmit="event.preventDefault(); startTraining();">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium text-gray-700">Project Name</label>
+                                <input type="text" id="conf-name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium text-gray-700">Dataset</label>
+                                <select id="conf-dataset" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                    <!-- Options populated by JS -->
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Rank (Dim)</label>
+                                <input type="number" id="conf-rank" value="32" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Alpha</label>
+                                <input type="number" id="conf-alpha" value="16" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Learning Rate</label>
+                                <input type="text" id="conf-lr" value="1e-4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Batch Size</label>
+                                <input type="number" id="conf-batch" value="1" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Epochs</label>
+                                <input type="number" id="conf-epochs" value="10" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Save Every N Epochs</label>
+                                <input type="number" id="conf-save-n" value="1" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Resolution</label>
+                                <input type="number" id="conf-res" value="1024" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Mixed Precision</label>
+                                <select id="conf-mp" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                    <option value="bf16">bf16</option>
+                                    <option value="fp16">fp16</option>
+                                    <option value="no">no</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Discrete Flow Shift</label>
+                                <input type="number" step="0.1" id="conf-shift" value="1.0" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                        </div>
+                        <div class="mt-6 flex space-x-4">
+                            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">Start Training</button>
+                            <button type="button" onclick="stopTraining()" class="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700">Stop</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Terminal -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-xl font-semibold mb-4">Terminal Output</h2>
+                    <div id="terminal" class="terminal"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Outputs Tab -->
+        <div id="tab-outputs" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">Trained LoRAs</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="outputs-list" class="bg-white divide-y divide-gray-200">
+                            <!-- Outputs will go here -->
+                        </tbody>
+                    </table>
+                </div>
+                <button onclick="loadOutputs()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Refresh List</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab Management
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+            });
+            document.getElementById('btn-' + tabId).classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+            
+            if (tabId === 'models') loadModelsStatus();
+            if (tabId === 'datasets') loadDatasets();
+            if (tabId === 'train') loadDatasetsForConfig();
+            if (tabId === 'outputs') loadOutputs();
+        }
+
+        // Models
+        async function loadModelsStatus() {
+            const res = await fetch('/api/models/status');
+            const status = await res.json();
+            const list = document.getElementById('models-list');
+            list.innerHTML = '';
+            
+            let allExist = true;
+            for (const [key, info] of Object.entries(status)) {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between p-3 bg-gray-50 rounded';
+                item.innerHTML = `
+                    <span><strong class="uppercase">${key}:</strong> ${info.filename}</span>
+                    <span class="${info.exists ? 'text-green-600' : 'text-red-600 font-bold'}">${info.exists ? '✓ Found' : '✗ Missing'}</span>
+                `;
+                list.appendChild(item);
+                if (!info.exists) allExist = false;
+            }
+            
+            document.getElementById('download-btn').disabled = allExist;
+        }
+
+        async function downloadModels() {
+            appendLog('Starting model download...');
+            const res = await fetch('/api/models/download', { method: 'POST' });
+            const data = await res.json();
+            alert(data.message);
+        }
+
+        // Datasets
+        async function loadDatasets() {
+            const res = await fetch('/api/datasets');
+            const datasets = await res.json();
+            const list = document.getElementById('datasets-list');
+            list.innerHTML = '';
+            
+            datasets.forEach(d => {
+                const item = document.createElement('li');
+                item.className = 'py-3 flex justify-between items-center';
+                item.innerHTML = `<span>${d}</span>`;
+                list.appendChild(item);
+            });
+        }
+
+        async function uploadDataset() {
+            const name = document.getElementById('dataset-name').value;
+            const files = document.getElementById('dataset-files').files;
+            
+            if (!name || files.length === 0) {
+                alert('Please provide a name and select files');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('name', name);
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files', files[i]);
+            }
+            
+            const res = await fetch('/api/datasets/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            alert(data.message);
+            loadDatasets();
+        }
+
+        async function loadDatasetsForConfig() {
+            const res = await fetch('/api/datasets');
+            const datasets = await res.json();
+            const select = document.getElementById('conf-dataset');
+            select.innerHTML = '<option value="">Select a dataset...</option>';
+            datasets.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                select.appendChild(opt);
+            });
+        }
+
+        // Training
+        let eventSource = null;
+
+        function startLogs() {
+            if (eventSource) eventSource.close();
+            eventSource = new EventSource('/api/train/logs');
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                appendLog(data.message);
+            };
+        }
+
+        function appendLog(message) {
+            const terminal = document.getElementById('terminal');
+            const line = document.createElement('div');
+            line.textContent = message;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        async function startTraining() {
+            const config = {
+                name: document.getElementById('conf-name').value,
+                dataset_path: document.getElementById('conf-dataset').value,
+                rank: parseInt(document.getElementById('conf-rank').value),
+                alpha: parseInt(document.getElementById('conf-alpha').value),
+                learning_rate: parseFloat(document.getElementById('conf-lr').value),
+                batch_size: parseInt(document.getElementById('conf-batch').value),
+                num_epochs: parseInt(document.getElementById('conf-epochs').value),
+                save_every_n_epochs: parseInt(document.getElementById('conf-save-n').value),
+                resolution: parseInt(document.getElementById('conf-res').value),
+                mixed_precision: document.getElementById('conf-mp').value,
+                discrete_flow_shift: parseFloat(document.getElementById('conf-shift').value)
+            };
+            
+            if (!config.dataset_path) {
+                alert('Please select a dataset');
+                return;
+            }
+
+            document.getElementById('terminal').innerHTML = '';
+            startLogs();
+            
+            const res = await fetch('/api/train/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                appendLog('--- Training Initialization Started ---');
+            } else {
+                appendLog('ERROR: ' + data.detail);
+            }
+        }
+
+        async function stopTraining() {
+            const res = await fetch('/api/train/stop', { method: 'POST' });
+            const data = await res.json();
+            appendLog('--- ' + data.message + ' ---');
+        }
+
+        // Outputs
+        async function loadOutputs() {
+            const res = await fetch('/api/outputs');
+            const outputs = await res.json();
+            const list = document.getElementById('outputs-list');
+            list.innerHTML = '';
+            
+            outputs.forEach(o => {
+                const row = document.createElement('tr');
+                const sizeMB = (o.size / (1024 * 1024)).toFixed(2);
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${o.path}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${sizeMB} MB</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="/api/outputs/download/${o.path}" class="text-blue-600 hover:text-blue-900">Download</a>
+                    </td>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        // Init
+        showTab('models');
+    </script>
+</body>
+</html>

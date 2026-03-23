@@ -41,6 +41,10 @@ This document provides detailed instructions on installing, configuring, and usi
    ```bash
    ./install.sh
    ```
+   *Note: If you encounter "Permission denied" even after chmod, you can try running it directly with bash:*
+   ```bash
+   bash install.sh
+   ```
 4. The script follows the same logic as the Windows version, setting up a virtual environment and downloading all requirements.
 
 ---

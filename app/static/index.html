@@ -16,6 +16,17 @@
             overflow-y: auto;
             font-size: 0.875rem;
         }
+        .modal {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .dataset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .progress-bar {
+            transition: width 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -36,12 +47,10 @@
         <div id="tab-models" class="tab-content">
             <div class="bg-white rounded-lg shadow p-6">
                 <h2 class="text-xl font-semibold mb-4">Anima Preview 2 Base Models</h2>
-                <div id="models-list" class="space-y-4 mb-6">
-                    <!-- Model status items will go here -->
+                <p class="text-sm text-gray-500 mb-6">Enter a custom Hugging Face path (repo/filename) or a direct URL. Leave empty to use the official source.</p>
+                <div id="models-list" class="space-y-6">
+                    <!-- Model status items with individual inputs and progress -->
                 </div>
-                <button onclick="downloadModels()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50" id="download-btn">
-                    Download Missing Models
-                </button>
             </div>
         </div>
 
@@ -59,10 +68,23 @@
                     </div>
                 </div>
 
-                <h3 class="font-medium mb-2">Existing Datasets</h3>
-                <ul id="datasets-list" class="divide-y divide-gray-200">
-                    <!-- Datasets will go here -->
-                </ul>
+                <h3 class="font-medium mb-4">Existing Datasets</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dataset Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Files</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Size</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="datasets-list" class="bg-white divide-y divide-gray-200">
+                            <!-- Datasets will go here -->
+                        </tbody>
+                    </table>
+                </div>
+                <button onclick="loadDatasets()" class="mt-4 bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300">Refresh Datasets</button>
             </div>
         </div>
 
@@ -163,7 +185,27 @@
         </div>
     </div>
 
+    <!-- Modal for Dataset Files -->
+    <div id="files-modal" class="hidden fixed inset-0 modal flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 id="modal-title" class="text-lg font-semibold">Dataset Explorer</h3>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+            <div id="modal-body" class="p-6 overflow-y-auto flex-1 bg-gray-50">
+                <div id="modal-files-grid" class="dataset-grid">
+                    <!-- Gallery items listed here -->
+                </div>
+            </div>
+            <div class="p-4 border-t text-right bg-white rounded-b-lg">
+                <button onclick="closeModal()" class="bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300 font-medium">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        let statusInterval = null;
+
         // Tab Management
         function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -174,7 +216,14 @@
             });
             document.getElementById('btn-' + tabId).classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
             
-            if (tabId === 'models') loadModelsStatus();
+            clearInterval(statusInterval);
+            if (tabId === 'models') {
+                loadModelsStatus();
+                statusInterval = setInterval(() => {
+                    loadModelsStatus();
+                    updateProgress();
+                }, 1000);
+            }
             if (tabId === 'datasets') loadDatasets();
             if (tabId === 'train') loadDatasetsForConfig();
             if (tabId === 'outputs') loadOutputs();
@@ -185,28 +234,105 @@
             const res = await fetch('/api/models/status');
             const status = await res.json();
             const list = document.getElementById('models-list');
-            list.innerHTML = '';
             
-            let allExist = true;
-            for (const [key, info] of Object.entries(status)) {
-                const item = document.createElement('div');
-                item.className = 'flex items-center justify-between p-3 bg-gray-50 rounded';
-                item.innerHTML = `
-                    <span><strong class="uppercase">${key}:</strong> ${info.filename}</span>
-                    <span class="${info.exists ? 'text-green-600' : 'text-red-600 font-bold'}">${info.exists ? '✓ Found' : '✗ Missing'}</span>
-                `;
-                list.appendChild(item);
-                if (!info.exists) allExist = false;
+            // Only rebuild if content count changed
+            if (list.children.length === 0) {
+                list.innerHTML = '';
+                for (const [key, info] of Object.entries(status)) {
+                    const item = document.createElement('div');
+                    item.className = 'p-4 bg-gray-50 rounded-lg border border-gray-200';
+                    item.innerHTML = `
+                        <div class="flex flex-col md:flex-row md:items-center justify-between mb-4 space-y-2 md:space-y-0">
+                            <div class="flex-1">
+                                <span class="text-sm font-bold uppercase text-gray-500">${key}</span>
+                                <div class="text-lg font-medium text-gray-800">${info.filename}</div>
+                            </div>
+                            <div id="status-${key}" class="${info.exists ? 'text-green-600' : 'text-red-600 font-bold'}">
+                                ${info.exists ? '✓ Found' : '✗ Missing'}
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-2">
+                            <label class="text-xs text-gray-400 uppercase font-bold">Download Source (Optional)</label>
+                            <div class="flex space-x-2">
+                                <input type="text" id="input-${key}" placeholder="${info.default_source}" class="flex-1 border border-gray-300 rounded p-2 text-sm">
+                                <button onclick="downloadModel('${key}')" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50" id="btn-${key}">
+                                    Download
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-4 bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div id="progress-${key}" class="progress-bar bg-blue-600 h-full w-0" style="width: ${info.progress}%"></div>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                }
+            } else {
+                for (const [key, info] of Object.entries(status)) {
+                    const statusEl = document.getElementById(`status-${key}`);
+                    if (statusEl) {
+                        statusEl.className = info.exists ? 'text-green-600' : 'text-red-600 font-bold';
+                        statusEl.textContent = info.exists ? '✓ Found' : '✗ Missing';
+                    }
+                    
+                    const progressEl = document.getElementById(`progress-${key}`);
+                    if (progressEl) {
+                        progressEl.style.width = info.progress + '%';
+                    }
+                    
+                    const btn = document.getElementById(`btn-${key}`);
+                    if (btn) {
+                        btn.disabled = info.progress > 0 && info.progress < 100;
+                    }
+                }
             }
-            
-            document.getElementById('download-btn').disabled = allExist;
         }
 
-        async function downloadModels() {
-            appendLog('Starting model download...');
-            const res = await fetch('/api/models/download', { method: 'POST' });
+        async function updateProgress() {
+            // Check if any progress bars are currently in an "active" state (between 1 and 99)
+            // or if we have at least one download that just started.
+            const activeBars = Array.from(document.querySelectorAll('.progress-bar'))
+                .map(el => parseFloat(el.style.width || 0));
+            
+            const anyActive = activeBars.some(v => v > 0 && v < 100);
+            
+            // If nothing is active, we can skip the fetch to save resources
+            // But we do one last check if they all just hit 100
+            if (!anyActive && window.lastProgressActive === false) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/models/progress');
+                const progressMap = await res.json();
+                let currentlyAnyActive = false;
+
+                for (const [key, value] of Object.entries(progressMap)) {
+                    const progressEl = document.getElementById(`progress-${key}`);
+                    const btn = document.getElementById(`btn-${key}`);
+                    if (progressEl) {
+                        progressEl.style.width = value + '%';
+                    }
+                    if (btn) {
+                        btn.disabled = value > 0 && value < 100;
+                    }
+                    if (value > 0 && value < 100) currentlyAnyActive = true;
+                }
+                
+                window.lastProgressActive = currentlyAnyActive;
+            } catch (e) {
+                console.error("Progress poll failed", e);
+            }
+        }
+
+        async function downloadModel(key) {
+            const source = document.getElementById(`input-${key}`).value;
+            const res = await fetch('/api/models/download', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_key: key, source: source || "" })
+            });
             const data = await res.json();
-            alert(data.message);
+            appendLog(`Model download started: ${key}`);
         }
 
         // Datasets
@@ -217,11 +343,56 @@
             list.innerHTML = '';
             
             datasets.forEach(d => {
-                const item = document.createElement('li');
-                item.className = 'py-3 flex justify-between items-center';
-                item.innerHTML = `<span>${d}</span>`;
-                list.appendChild(item);
+                const row = document.createElement('tr');
+                const sizeMB = (d.size / (1024 * 1024)).toFixed(2);
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">${d.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${d.file_count} files</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${sizeMB} MB</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="viewFiles('${d.name}')" class="text-blue-600 hover:text-blue-900">Explore</button>
+                    </td>
+                `;
+                list.appendChild(row);
             });
+        }
+
+        async function viewFiles(name) {
+            const res = await fetch(`/api/datasets/${name}/files`);
+            const groups = await res.json();
+            
+            document.getElementById('modal-title').textContent = `Exploring Dataset: ${name}`;
+            const grid = document.getElementById('modal-files-grid');
+            grid.innerHTML = '';
+            
+            groups.forEach(g => {
+                const item = document.createElement('div');
+                item.className = 'bg-white p-3 rounded shadow-sm border border-gray-200 flex flex-col space-y-2';
+                
+                let content = '';
+                if (g.image) {
+                    content += `<img src="/api/datasets/${name}/view/${g.image}" class="w-full h-40 object-cover rounded bg-gray-100" loading="lazy">`;
+                } else {
+                    content += `<div class="w-full h-40 bg-gray-100 flex items-center justify-center text-gray-400 rounded">No Image</div>`;
+                }
+                
+                content += `<div class="text-xs font-bold truncate" title="${g.name}">${g.name}</div>`;
+                
+                if (g.caption) {
+                    content += `<div class="text-[10px] text-gray-600 bg-gray-50 p-2 rounded border border-gray-100 h-16 overflow-y-auto italic">"${g.caption_text || '(Empty Caption)'}"</div>`;
+                } else {
+                    content += `<div class="text-[10px] text-red-400 p-2 h-16 flex items-center justify-center border border-dashed border-red-100 rounded italic">Missing .txt file</div>`;
+                }
+                
+                item.innerHTML = content;
+                grid.appendChild(item);
+            });
+            
+            document.getElementById('files-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('files-modal').classList.add('hidden');
         }
 
         async function uploadDataset() {
@@ -255,8 +426,8 @@
             select.innerHTML = '<option value="">Select a dataset...</option>';
             datasets.forEach(d => {
                 const opt = document.createElement('option');
-                opt.value = d;
-                opt.textContent = d;
+                opt.value = d.name;
+                opt.textContent = `${d.name} (${d.file_count} files)`;
                 select.appendChild(opt);
             });
         }

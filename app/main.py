@@ -1,5 +1,11 @@
 import os
 import asyncio
+import sys
+
+# On Windows, the ProactorEventLoop is required for subprocess support
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 import subprocess
 import signal
 import json
@@ -11,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from huggingface_hub import hf_hub_download
 import toml
+import threading
 
 app = FastAPI(title="Anima Preview 2 LoRA Trainer")
 
@@ -26,14 +33,24 @@ SD_SCRIPTS_DIR = os.path.join(BASE_DIR, "sd-scripts")
 # Model Info
 ANIMA_REPO = "circlestone-labs/Anima"
 REQUIRED_FILES = {
-    "dit": "anima-preview2.safetensors",
-    "qwen3": "qwen_3_06b_base.safetensors",
-    "vae": "qwen_image_vae.safetensors"
+    "dit": {
+        "filename": "anima-preview2.safetensors", 
+        "url": f"https://huggingface.co/{ANIMA_REPO}/resolve/main/split_files/diffusion_models/anima-preview2.safetensors"
+    },
+    "qwen3": {
+        "filename": "qwen_3_06b_base.safetensors", 
+        "url": f"https://huggingface.co/{ANIMA_REPO}/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors"
+    },
+    "vae": {
+        "filename": "qwen_image_vae.safetensors", 
+        "url": f"https://huggingface.co/{ANIMA_REPO}/resolve/main/split_files/vae/qwen_image_vae.safetensors"
+    }
 }
 
-# Global state for training
+# Global state
 training_process = None
 log_queue = asyncio.Queue()
+download_status = {} # model_key -> progress percentage
 
 class TrainingConfig(BaseModel):
     name: str
@@ -55,6 +72,9 @@ async def startup_event():
     # Ensure directories exist
     for d in [MODELS_DIR, DATASETS_DIR, OUTPUTS_DIR, CONFIGS_DIR]:
         os.makedirs(d, exist_ok=True)
+    # Initialize download status
+    for key in REQUIRED_FILES:
+        download_status[key] = 0
 
 @app.get("/")
 async def root():
@@ -63,34 +83,136 @@ async def root():
 @app.get("/api/models/status")
 async def get_models_status():
     status = {}
-    for key, filename in REQUIRED_FILES.items():
+    for key, info in REQUIRED_FILES.items():
+        filename = info["filename"]
         path = os.path.join(MODELS_DIR, filename)
         status[key] = {
             "exists": os.path.exists(path),
-            "filename": filename
+            "filename": filename,
+            "default_source": info["url"],
+            "progress": download_status.get(key, 0)
         }
     return status
 
-@app.post("/api/models/download")
-async def download_models(background_tasks: BackgroundTasks):
-    background_tasks.add_task(do_download_models)
-    return {"message": "Download started in background"}
+@app.get("/api/models/progress")
+async def get_models_progress():
+    return download_status
 
-async def do_download_models():
-    for key, filename in REQUIRED_FILES.items():
-        if not os.path.exists(os.path.join(MODELS_DIR, filename)):
-            await log_to_ui(f"Downloading {filename}...")
-            hf_hub_download(repo_id=ANIMA_REPO, filename=filename, local_dir=MODELS_DIR)
-            await log_to_ui(f"Downloaded {filename}")
-    await log_to_ui("All models downloaded successfully!")
+class DownloadRequest(BaseModel):
+    model_key: str
+    source: Optional[str] = None
+
+@app.post("/api/models/download")
+async def download_model(req: DownloadRequest, background_tasks: BackgroundTasks):
+    if req.model_key not in REQUIRED_FILES:
+        raise HTTPException(status_code=400, detail="Invalid model key")
+    
+    download_status[req.model_key] = 0
+    source = req.source if req.source and req.source.strip() else None
+    
+    # Run in a separate thread so it doesn't block the event loop
+    loop = asyncio.get_running_loop()
+    background_tasks.add_task(do_download_model_sync, req.model_key, source, loop)
+    
+    return {"message": f"Download of {req.model_key} started"}
+
+def do_download_model_sync(key: str, source: Optional[str], loop):
+    """Synchronous download function run in a thread."""
+    try:
+        info = REQUIRED_FILES[key]
+        filename = info["filename"]
+        url = source if source else info["url"]
+        dest_path = os.path.join(MODELS_DIR, filename)
+
+        # Notify UI via thread-safe call
+        asyncio.run_coroutine_threadsafe(log_to_ui(f"Downloading {key} from: {url}"), loop)
+        
+        import requests
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(url, stream=True, headers=headers, allow_redirects=True)
+        
+        if response.status_code != 200:
+            raise Exception(f"Server returned status code {response.status_code}")
+
+        total_size = int(response.headers.get('content-length', 0))
+        downloaded = 0
+        
+        os.makedirs(MODELS_DIR, exist_ok=True)
+        
+        with open(dest_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    if total_size > 0:
+                        download_status[key] = int((downloaded / total_size) * 100)
+                    # Force disk write for metadata update
+                    f.flush()
+        
+        download_status[key] = 100
+        asyncio.run_coroutine_threadsafe(log_to_ui(f"Successfully downloaded {filename}"), loop)
+    except Exception as e:
+        asyncio.run_coroutine_threadsafe(log_to_ui(f"Error downloading {key}: {str(e)}"), loop)
+        download_status[key] = 0
 
 @app.get("/api/datasets")
 async def list_datasets():
     datasets = []
+    if not os.path.exists(DATASETS_DIR):
+        return datasets
+        
     for d in os.listdir(DATASETS_DIR):
-        if os.path.isdir(os.path.join(DATASETS_DIR, d)):
-            datasets.append(d)
+        d_path = os.path.join(DATASETS_DIR, d)
+        if os.path.isdir(d_path):
+            file_count = 0
+            total_size = 0
+            for root, dirs, files in os.walk(d_path):
+                file_count += len(files)
+                for f in files:
+                    total_size += os.path.getsize(os.path.join(root, f))
+            
+            datasets.append({
+                "name": d,
+                "file_count": file_count,
+                "size": total_size
+            })
     return datasets
+
+@app.get("/api/datasets/{name}/files")
+async def list_dataset_files(name: str):
+    dataset_path = os.path.join(DATASETS_DIR, name)
+    if not os.path.exists(dataset_path):
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    files_map = {}
+    for f in os.listdir(dataset_path):
+        if not os.path.isfile(os.path.join(dataset_path, f)):
+            continue
+            
+        base, ext = os.path.splitext(f)
+        ext = ext.lower()
+        
+        if base not in files_map:
+            files_map[base] = {"name": base, "image": None, "caption": None, "caption_text": ""}
+            
+        if ext in [".jpg", ".jpeg", ".png", ".webp", ".bmp"]:
+            files_map[base]["image"] = f
+        elif ext == ".txt":
+            files_map[base]["caption"] = f
+            try:
+                with open(os.path.join(dataset_path, f), "r", encoding="utf-8") as tf:
+                    files_map[base]["caption_text"] = tf.read().strip()
+            except:
+                pass
+                
+    return sorted(list(files_map.values()), key=lambda x: x["name"])
+
+@app.get("/api/datasets/{name}/view/{filename}")
+async def serve_dataset_file(name: str, filename: str):
+    file_path = os.path.join(DATASETS_DIR, name, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_path)
 
 @app.post("/api/datasets/upload")
 async def upload_dataset(name: str = Form(...), files: List[UploadFile] = File(...)):
@@ -142,7 +264,6 @@ async def start_training(config: TrainingConfig):
     if training_process and training_process.poll() is None:
         raise HTTPException(status_code=400, detail="Training already in progress")
     
-    # Generate dataset.toml
     dataset_toml_path = os.path.join(CONFIGS_DIR, f"{config.name}_dataset.toml")
     dataset_config = {
         "general": {
@@ -166,7 +287,6 @@ async def start_training(config: TrainingConfig):
     with open(dataset_toml_path, "w") as f:
         toml.dump(dataset_config, f)
     
-    # Build command
     cmd = [
         "accelerate", "launch",
         "--num_processes", "1",
@@ -174,9 +294,9 @@ async def start_training(config: TrainingConfig):
         "--mixed_precision", config.mixed_precision,
         "--dynamo_backend", "no",
         os.path.join(SD_SCRIPTS_DIR, "anima_train_network.py"),
-        "--pretrained_model_name_or_path", os.path.join(MODELS_DIR, REQUIRED_FILES["dit"]),
-        "--qwen3", os.path.join(MODELS_DIR, REQUIRED_FILES["qwen3"]),
-        "--vae", os.path.join(MODELS_DIR, REQUIRED_FILES["vae"]),
+        "--pretrained_model_name_or_path", os.path.join(MODELS_DIR, REQUIRED_FILES["dit"]["filename"]),
+        "--qwen3", os.path.join(MODELS_DIR, REQUIRED_FILES["qwen3"]["filename"]),
+        "--vae", os.path.join(MODELS_DIR, REQUIRED_FILES["vae"]["filename"]),
         "--dataset_config", dataset_toml_path,
         "--output_dir", os.path.join(OUTPUTS_DIR, config.name),
         "--output_name", config.name,
@@ -197,20 +317,13 @@ async def start_training(config: TrainingConfig):
     
     await log_to_ui(f"Starting training with command: {' '.join(cmd)}")
     
-    # Run process
-    # Set CWD to sd-scripts so it can find its library and networks
-    # Set PYTHONPATH to include sd-scripts
-    # Set PYTHONIOENCODING and PYTHONUTF8 to utf-8 to prevent UnicodeEncodeError on Windows
-    # Set PYTHONUNBUFFERED to 1 to ensure real-time log output
     env = os.environ.copy()
     env["PYTHONPATH"] = SD_SCRIPTS_DIR + (os.pathsep + env.get("PYTHONPATH", "") if env.get("PYTHONPATH") else "")
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUTF8"] = "1"
     env["PYTHONUNBUFFERED"] = "1"
-    
-    # Optional: Force some libraries to be less shy about outputting
     env["ACCELERATE_LOG_LEVEL"] = "INFO"
-    env["FORCE_COLOR"] = "1" # Try to keep some formatting if rich supports it
+    env["FORCE_COLOR"] = "1"
     
     training_process = subprocess.Popen(
         cmd,
@@ -218,20 +331,31 @@ async def start_training(config: TrainingConfig):
         stderr=subprocess.STDOUT,
         text=True,
         encoding="utf-8",
+        errors="replace",
         bufsize=1,
         cwd=SD_SCRIPTS_DIR,
         env=env,
         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
     )
     
-    async def monitor_process():
-        for line in iter(training_process.stdout.readline, ""):
-            await log_to_ui(line.strip())
-        training_process.stdout.close()
-        return_code = training_process.wait()
-        await log_to_ui(f"Training finished with return code {return_code}")
+    def reader(loop):
+        try:
+            while True:
+                line = training_process.stdout.readline()
+                if not line:
+                    break
+                clean_line = line.strip()
+                if clean_line:
+                    asyncio.run_coroutine_threadsafe(log_to_ui(clean_line), loop)
+        except Exception as e:
+            asyncio.run_coroutine_threadsafe(log_to_ui(f"Error reading logs: {str(e)}"), loop)
+        finally:
+            training_process.stdout.close()
+            return_code = training_process.wait()
+            asyncio.run_coroutine_threadsafe(log_to_ui(f"Training finished with return code {return_code}"), loop)
 
-    asyncio.create_task(monitor_process())
+    loop = asyncio.get_running_loop()
+    threading.Thread(target=reader, args=(loop,), daemon=True).start()
     
     return {"message": "Training started"}
 
@@ -246,5 +370,4 @@ async def stop_training():
         return {"message": "Training stopped"}
     return {"message": "No training in progress"}
 
-# Serve static files last
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "app/static")), name="static")

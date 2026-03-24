@@ -5,8 +5,10 @@ A simple, automated web application for training LoRA models for the **Anima Pre
 ## Features
 
 - **One-Click Installation**: Automated scripts for Windows and Linux.
+- **LoRA & Full Finetuning**: Support for both Low-Rank Adaptation and full model weight updates.
 - **Model Management**: Easy download of required base models (DiT, Qwen3, VAE) from Hugging Face.
 - **Dataset Management**: Upload images and captions directly through the web UI.
+- **Advanced Optimizer Support**: Choose from AdamW8bit, Lion, Prodigy, DAdaptation, and more.
 - **Tailored Configuration**: Optimized defaults for Anima Preview 2 training (Rank, Alpha, Learning Rate, Flow Shift, etc.).
 - **Real-time Monitoring**: Live terminal output of the training process.
 - **Cross-Platform**: Works on Windows and Linux.
@@ -59,7 +61,5 @@ While this UI code is MIT-licensed, the **Anima Preview 2** model weights and th
 
 ## Acknowledgements
 
-- [CircleStone Labs](https://huggingface.co/circlestone-labs) for the Anima model.
-- [kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts) for the training engine.
 - [CircleStone Labs](https://huggingface.co/circlestone-labs) for the Anima model.
 - [kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts) for the training engine.

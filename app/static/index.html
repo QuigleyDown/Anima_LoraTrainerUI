@@ -115,6 +115,30 @@
                                 <input type="number" id="conf-alpha" value="16" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                             </div>
                             <div>
+                                <label class="block text-sm font-medium text-gray-700">Optimizer</label>
+                                <select id="conf-optimizer" onchange="updateOptimizerDefaults()" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                    <option value="AdamW">AdamW</option>
+                                    <option value="AdamW8bit" selected>AdamW8bit</option>
+                                    <option value="PagedAdamW8bit">PagedAdamW8bit</option>
+                                    <option value="Lion">Lion</option>
+                                    <option value="Lion8bit">Lion8bit</option>
+                                    <option value="PagedLion8bit">PagedLion8bit</option>
+                                    <option value="Adafactor">Adafactor</option>
+                                    <option value="Prodigy">Prodigy</option>
+                                    <option value="DAdaptation">DAdaptation</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Timestep Sampling</label>
+                                <select id="conf-sampler" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                    <option value="sigmoid" selected>sigmoid</option>
+                                    <option value="sigma">sigma</option>
+                                    <option value="uniform">uniform</option>
+                                    <option value="shift">shift</option>
+                                    <option value="flux_shift">flux_shift</option>
+                                </select>
+                            </div>
+                            <div>
                                 <label class="block text-sm font-medium text-gray-700">Learning Rate</label>
                                 <input type="text" id="conf-lr" value="1e-4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                             </div>
@@ -432,6 +456,22 @@
             });
         }
 
+        function updateOptimizerDefaults() {
+            const opt = document.getElementById('conf-optimizer').value;
+            const lrInput = document.getElementById('conf-lr');
+            const alphaInput = document.getElementById('conf-alpha');
+            
+            if (opt === 'Prodigy' || opt === 'DAdaptation') {
+                lrInput.value = '1.0';
+                alphaInput.value = '1';
+            } else if (opt.includes('Lion')) {
+                lrInput.value = '5e-5';
+            } else {
+                lrInput.value = '1e-4';
+                alphaInput.value = '16';
+            }
+        }
+
         // Training
         let eventSource = null;
 
@@ -458,6 +498,8 @@
                 dataset_path: document.getElementById('conf-dataset').value,
                 rank: parseInt(document.getElementById('conf-rank').value),
                 alpha: parseInt(document.getElementById('conf-alpha').value),
+                optimizer: document.getElementById('conf-optimizer').value,
+                timestep_sampling: document.getElementById('conf-sampler').value,
                 learning_rate: parseFloat(document.getElementById('conf-lr').value),
                 batch_size: parseInt(document.getElementById('conf-batch').value),
                 num_epochs: parseInt(document.getElementById('conf-epochs').value),

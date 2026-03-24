@@ -313,6 +313,7 @@ async def start_training(config: TrainingConfig):
         "--optimizer_type", config.optimizer,
         "--timestep_sampling", config.timestep_sampling,
         "--discrete_flow_shift", str(config.discrete_flow_shift),
+        "--attn_mode", "torch",
         "--cache_latents",
         "--save_every_n_epochs", str(config.save_every_n_epochs),
         "--save_precision", "bf16"

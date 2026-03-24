@@ -79,7 +79,10 @@ Anima Preview 2 uses a **Diffusion Transformer (DiT)** architecture with **Recti
 - **Project Name**: The name used for the output folder and the `.safetensors` LoRA/Model file.
 - **Training Type**: 
     - **LoRA**: (Recommended) Low-Rank Adaptation. Trains a small additional file that sits on top of the base model. Fast and low VRAM usage.
-    - **Full Finetune**: Updates all weights of the DiT model. Requires significantly more VRAM and time, but can potentially learn more complex concepts or broad style changes.
+    - **Full Finetune**: Updates all weights of the DiT model. 
+        - **VRAM Warning**: Requires at least 24GB VRAM. 
+        - **Optimization**: Gradient Checkpointing is automatically enabled to save memory. 
+        - **Recommended Optimizer**: Use `AdamW8bit` or `PagedAdamW8bit`. Avoid `Prodigy` for full finetunes unless you have very high VRAM (32GB+).
 - **Rank (Dim)**: (LoRA only) The "capacity" of the LoRA. 
     - `16-32`: Good for characters or specific styles.
     - `64-128`: Better for complex concepts or high-detail subjects. Higher ranks use more VRAM.
@@ -123,9 +126,11 @@ Anima Preview 2 uses a **Diffusion Transformer (DiT)** architecture with **Recti
 ## 5. Troubleshooting
 
 - **Out of Memory (OOM)**: 
-    - Reduce **Batch Size** to 1.
-    - Lower the **Resolution** to 768 or 896.
-    - Ensure **Cache Latents** is enabled (it is by default in this app).
+    - **Enable Gradient Checkpointing**: This is now enabled by default to save VRAM.
+    - **Use 8-bit Optimizers**: Switch to `AdamW8bit` or `PagedAdamW8bit`.
+    - **Reduce Batch Size**: Set Batch Size to `1`.
+    - **Lower Resolution**: Reduce to `896` or `768`.
+    - **LoRA vs Full**: If Full Finetune keeps failing even with the above, use LoRA instead. LoRA is much more memory-efficient.
 - **No GPU Found**: 
     - Ensure you have NVIDIA drivers installed. 
     - If the installer fails to install Torch with CUDA, you may need to install it manually within the `venv`.

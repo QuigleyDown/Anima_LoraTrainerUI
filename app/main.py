@@ -65,7 +65,7 @@ class TrainingConfig(BaseModel):
     mixed_precision: str = "bf16"
     optimizer: str = "AdamW8bit"
     timestep_sampling: str = "sigmoid"
-    discrete_flow_shift: float = 1.0
+    discrete_flow_shift: float = 3.0
     dataset_path: str
 
 @app.on_event("startup")
@@ -319,6 +319,12 @@ async def start_training(config: TrainingConfig):
         "--save_every_n_epochs", str(config.save_every_n_epochs),
         "--save_precision", "bf16"
     ]
+
+    if config.training_type == "Full":
+        if config.mixed_precision == "bf16":
+            cmd.append("--full_bf16")
+        elif config.mixed_precision == "fp16":
+            cmd.append("--full_fp16")
 
     if config.training_type == "LoRA":
         cmd.extend([

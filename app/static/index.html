@@ -113,11 +113,11 @@
                                     <!-- Options populated by JS -->
                                 </select>
                             </div>
-                            <div class="lora-only">
+                            <div id="conf-rank-container" class="lora-only">
                                 <label class="block text-sm font-medium text-gray-700">Rank (Dim)</label>
                                 <input type="number" id="conf-rank" value="32" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                             </div>
-                            <div class="lora-only">
+                            <div id="conf-alpha-container" class="lora-only">
                                 <label class="block text-sm font-medium text-gray-700">Alpha</label>
                                 <input type="number" id="conf-alpha" value="16" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                             </div>
@@ -450,7 +450,7 @@
             loadDatasets();
         }
 
-        function loadDatasetsForConfig() {
+        async function loadDatasetsForConfig() {
             const res = await fetch('/api/datasets');
             const datasets = await res.json();
             const select = document.getElementById('conf-dataset');
@@ -512,12 +512,11 @@
         }
 
         async function startTraining() {
+            const training_type = document.getElementById('conf-type').value;
             const config = {
                 name: document.getElementById('conf-name').value,
-                training_type: document.getElementById('conf-type').value,
+                training_type: training_type,
                 dataset_path: document.getElementById('conf-dataset').value,
-                rank: parseInt(document.getElementById('conf-rank').value),
-                alpha: parseInt(document.getElementById('conf-alpha').value),
                 optimizer: document.getElementById('conf-optimizer').value,
                 timestep_sampling: document.getElementById('conf-sampler').value,
                 learning_rate: parseFloat(document.getElementById('conf-lr').value),
@@ -528,6 +527,14 @@
                 mixed_precision: document.getElementById('conf-mp').value,
                 discrete_flow_shift: parseFloat(document.getElementById('conf-shift').value)
             };
+            
+            if (training_type === 'LoRA') {
+                config.rank = parseInt(document.getElementById('conf-rank').value);
+                config.alpha = parseInt(document.getElementById('conf-alpha').value);
+            } else {
+                config.rank = 32; // Defaults for validation
+                config.alpha = 16;
+            }
             
             if (!config.dataset_path) {
                 alert('Please select a dataset');

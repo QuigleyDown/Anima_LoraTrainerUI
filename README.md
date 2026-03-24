@@ -50,7 +50,16 @@ A simple, automated web application for training LoRA models for the **Anima Pre
 
 Anima Preview 2 is an experimental model. LoRAs trained for Preview 2 may not be compatible with the final full release of Anima. It is recommended to use `bf16` mixed precision for stability.
 
+## License
+
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for more details.
+
+**Important Note on the Anima Model:**
+While this UI code is MIT-licensed, the **Anima Preview 2** model weights and their derivatives (including LoRAs and full finetunes) are subject to the **CircleStone Labs Non-Commercial License** and the **NVIDIA Open Model License Agreement**. You are responsible for ensuring your use of the model complies with their respective terms.
+
 ## Acknowledgements
 
+- [CircleStone Labs](https://huggingface.co/circlestone-labs) for the Anima model.
+- [kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts) for the training engine.
 - [CircleStone Labs](https://huggingface.co/circlestone-labs) for the Anima model.
 - [kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts) for the training engine.

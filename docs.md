@@ -76,11 +76,14 @@ This document provides detailed instructions on installing, configuring, and usi
 Anima Preview 2 uses a **Diffusion Transformer (DiT)** architecture with **Rectified Flow**, which differs from standard Stable Diffusion v1.5/XL.
 
 ### Core Settings
-- **Project Name**: The name used for the output folder and the `.safetensors` LoRA file.
-- **Rank (Dim)**: The "capacity" of the LoRA. 
+- **Project Name**: The name used for the output folder and the `.safetensors` LoRA/Model file.
+- **Training Type**: 
+    - **LoRA**: (Recommended) Low-Rank Adaptation. Trains a small additional file that sits on top of the base model. Fast and low VRAM usage.
+    - **Full Finetune**: Updates all weights of the DiT model. Requires significantly more VRAM and time, but can potentially learn more complex concepts or broad style changes.
+- **Rank (Dim)**: (LoRA only) The "capacity" of the LoRA. 
     - `16-32`: Good for characters or specific styles.
     - `64-128`: Better for complex concepts or high-detail subjects. Higher ranks use more VRAM.
-- **Alpha**: The scaling factor for the Rank. Usually set to `half of Rank` or `equal to Rank`. A lower Alpha relative to Rank can make training more stable.
+- **Alpha**: (LoRA only) The scaling factor for the Rank. Usually set to `half of Rank` or `equal to Rank`. A lower Alpha relative to Rank can make training more stable.
     - *Note: For `Prodigy` or `DAdaptation`, Alpha is typically set to `1`.*
 - **Optimizer**: The algorithm used to update model weights.
     - **AdamW8bit**: (Default) Fast and memory-efficient. Great for most users.

@@ -101,16 +101,23 @@
                                 <input type="text" id="conf-name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                             </div>
                             <div class="col-span-2">
+                                <label class="block text-sm font-medium text-gray-700">Training Type</label>
+                                <select id="conf-type" onchange="toggleTrainingType()" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                    <option value="LoRA" selected>LoRA</option>
+                                    <option value="Full">Full Finetune</option>
+                                </select>
+                            </div>
+                            <div class="col-span-2">
                                 <label class="block text-sm font-medium text-gray-700">Dataset</label>
                                 <select id="conf-dataset" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                                     <!-- Options populated by JS -->
                                 </select>
                             </div>
-                            <div>
+                            <div class="lora-only">
                                 <label class="block text-sm font-medium text-gray-700">Rank (Dim)</label>
                                 <input type="number" id="conf-rank" value="32" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                             </div>
-                            <div>
+                            <div class="lora-only">
                                 <label class="block text-sm font-medium text-gray-700">Alpha</label>
                                 <input type="number" id="conf-alpha" value="16" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                             </div>
@@ -443,7 +450,7 @@
             loadDatasets();
         }
 
-        async function loadDatasetsForConfig() {
+        function loadDatasetsForConfig() {
             const res = await fetch('/api/datasets');
             const datasets = await res.json();
             const select = document.getElementById('conf-dataset');
@@ -453,6 +460,18 @@
                 opt.value = d.name;
                 opt.textContent = `${d.name} (${d.file_count} files)`;
                 select.appendChild(opt);
+            });
+        }
+
+        function toggleTrainingType() {
+            const type = document.getElementById('conf-type').value;
+            const loraElements = document.querySelectorAll('.lora-only');
+            loraElements.forEach(el => {
+                if (type === 'Full') {
+                    el.classList.add('hidden');
+                } else {
+                    el.classList.remove('hidden');
+                }
             });
         }
 
@@ -495,6 +514,7 @@
         async function startTraining() {
             const config = {
                 name: document.getElementById('conf-name').value,
+                training_type: document.getElementById('conf-type').value,
                 dataset_path: document.getElementById('conf-dataset').value,
                 rank: parseInt(document.getElementById('conf-rank').value),
                 alpha: parseInt(document.getElementById('conf-alpha').value),

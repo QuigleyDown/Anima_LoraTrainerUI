@@ -54,6 +54,7 @@ download_status = {} # model_key -> progress percentage
 
 class TrainingConfig(BaseModel):
     name: str
+    training_type: str = "LoRA" # "LoRA" or "Full"
     rank: int = 32
     alpha: int = 16
     learning_rate: float = 1e-4
@@ -287,22 +288,24 @@ async def start_training(config: TrainingConfig):
     with open(dataset_toml_path, "w") as f:
         toml.dump(dataset_config, f)
     
+    if config.training_type == "Full":
+        script_name = "anima_train.py"
+    else:
+        script_name = "anima_train_network.py"
+
     cmd = [
         "accelerate", "launch",
         "--num_processes", "1",
         "--num_machines", "1",
         "--mixed_precision", config.mixed_precision,
         "--dynamo_backend", "no",
-        os.path.join(SD_SCRIPTS_DIR, "anima_train_network.py"),
+        os.path.join(SD_SCRIPTS_DIR, script_name),
         "--pretrained_model_name_or_path", os.path.join(MODELS_DIR, REQUIRED_FILES["dit"]["filename"]),
         "--qwen3", os.path.join(MODELS_DIR, REQUIRED_FILES["qwen3"]["filename"]),
         "--vae", os.path.join(MODELS_DIR, REQUIRED_FILES["vae"]["filename"]),
         "--dataset_config", dataset_toml_path,
         "--output_dir", os.path.join(OUTPUTS_DIR, config.name),
         "--output_name", config.name,
-        "--network_module", "networks.lora_anima",
-        "--network_dim", str(config.rank),
-        "--network_alpha", str(config.alpha),
         "--learning_rate", str(config.learning_rate),
         "--train_batch_size", str(config.batch_size),
         "--max_train_epochs", str(config.num_epochs),
@@ -314,8 +317,15 @@ async def start_training(config: TrainingConfig):
         "--save_every_n_epochs", str(config.save_every_n_epochs),
         "--save_precision", "bf16"
     ]
+
+    if config.training_type == "LoRA":
+        cmd.extend([
+            "--network_module", "networks.lora_anima",
+            "--network_dim", str(config.rank),
+            "--network_alpha", str(config.alpha),
+        ])
     
-    await log_to_ui(f"Starting training with command: {' '.join(cmd)}")
+    await log_to_ui(f"Starting {config.training_type} training with command: {' '.join(cmd)}")
     
     env = os.environ.copy()
     env["PYTHONPATH"] = SD_SCRIPTS_DIR + (os.pathsep + env.get("PYTHONPATH", "") if env.get("PYTHONPATH") else "")

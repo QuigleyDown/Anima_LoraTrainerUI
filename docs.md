@@ -81,8 +81,22 @@ Anima Preview 2 uses a **Diffusion Transformer (DiT)** architecture with **Recti
     - `16-32`: Good for characters or specific styles.
     - `64-128`: Better for complex concepts or high-detail subjects. Higher ranks use more VRAM.
 - **Alpha**: The scaling factor for the Rank. Usually set to `half of Rank` or `equal to Rank`. A lower Alpha relative to Rank can make training more stable.
+    - *Note: For `Prodigy` or `DAdaptation`, Alpha is typically set to `1`.*
+- **Optimizer**: The algorithm used to update model weights.
+    - **AdamW8bit**: (Default) Fast and memory-efficient. Great for most users.
+    - **AdamW / PagedAdamW8bit**: Standard AdamW or a "paged" version that can offload to system RAM if VRAM is full (slower but prevents crashes).
+    - **Lion / Lion8bit**: Often requires a lower learning rate (e.g., `5e-5`) but can converge faster or with better detail in some cases.
+    - **Prodigy / DAdaptation**: "Adaptive" optimizers that attempt to find the optimal learning rate automatically. 
+        - **Important**: When using these, set **Learning Rate** to `1.0` and **Alpha** to `1`. The UI will attempt to set these defaults for you.
+    - **Adafactor**: A memory-efficient optimizer often used for large model fine-tuning.
+- **Timestep Sampling**: Controls how noise levels (timesteps) are distributed during training.
+    - **sigmoid**: (Default) Recommended for Anima's Rectified Flow. Focuses on the "middle" of the diffusion process.
+    - **uniform**: Even distribution across all noise levels.
+    - **sigma**: Uses the noise schedule's sigma values directly.
+    - **shift / flux_shift**: Applies a distribution shift. `flux_shift` is tuned specifically for flow-based models like FLUX or Anima.
 - **Learning Rate**: How fast the model learns. 
-    - `1e-4` (0.0001) is the standard starting point.
+    - `1e-4` (0.0001) is the standard starting point for AdamW.
+    - Use `1.0` for **Prodigy** or **DAdaptation**.
     - If the model "deep fries" (distorts) images quickly, lower this to `5e-5` or `2e-5`.
 - **Epochs**: The total number of passes through the entire dataset.
 - **Save Every N Epochs**: Configures how often the model state is saved. For example, if set to `2`, a new `.safetensors` file will be created every 2 epochs, allowing you to test intermediate versions of your LoRA.

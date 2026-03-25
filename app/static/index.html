@@ -465,7 +465,9 @@
 
         function toggleTrainingType() {
             const type = document.getElementById('conf-type').value;
+            const lrInput = document.getElementById('conf-lr');
             const loraElements = document.querySelectorAll('.lora-only');
+            
             loraElements.forEach(el => {
                 if (type === 'Full') {
                     el.classList.add('hidden');
@@ -473,6 +475,13 @@
                     el.classList.remove('hidden');
                 }
             });
+
+            // Update default learning rates based on type
+            if (type === 'Full') {
+                lrInput.value = '2e-5';
+            } else {
+                lrInput.value = '1e-4';
+            }
         }
 
         function updateOptimizerDefaults() {

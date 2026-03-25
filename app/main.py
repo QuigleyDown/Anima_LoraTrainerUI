@@ -289,9 +289,9 @@ async def start_training(config: TrainingConfig):
         toml.dump(dataset_config, f)
     
     if config.training_type == "Full":
-        script_name = "anima_train.py"
+        script_path = os.path.join(BASE_DIR, "app", "anima_train_patch.py")
     else:
-        script_name = "anima_train_network.py"
+        script_path = os.path.join(SD_SCRIPTS_DIR, "anima_train_network.py")
 
     cmd = [
         "accelerate", "launch",
@@ -299,7 +299,7 @@ async def start_training(config: TrainingConfig):
         "--num_machines", "1",
         "--mixed_precision", config.mixed_precision,
         "--dynamo_backend", "no",
-        os.path.join(SD_SCRIPTS_DIR, script_name),
+        script_path,
         "--pretrained_model_name_or_path", os.path.join(MODELS_DIR, REQUIRED_FILES["dit"]["filename"]),
         "--qwen3", os.path.join(MODELS_DIR, REQUIRED_FILES["qwen3"]["filename"]),
         "--vae", os.path.join(MODELS_DIR, REQUIRED_FILES["vae"]["filename"]),

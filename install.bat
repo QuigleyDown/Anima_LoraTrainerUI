@@ -42,12 +42,22 @@ cd ..
 echo [INFO] Installing app-specific dependencies...
 python -m pip install -r requirements.txt
 
+:: GPU Detection and PyTorch Installation
+echo [INFO] Detecting GPU...
+for /f "tokens=*" %%i in ('nvidia-smi --query-gpu=name --format=csv,noheader 2^>nul') do set GPU_NAME=%%i
+echo [INFO] Detected GPU: %GPU_NAME%
+
 :: CLEAN UNINSTALL AND FORCE CUDA PYTORCH
 echo [INFO] Uninstalling existing torch packages to ensure clean CUDA install...
 python -m pip uninstall -y torch torchvision torchaudio xformers
 
-echo [INFO] Installing CUDA-enabled PyTorch 2.5.1...
-python -m pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+if "!GPU_NAME!"=="!GPU_NAME:RTX 50=!" if "!GPU_NAME!"=="!GPU_NAME:Blackwell=!" (
+    echo [INFO] Standard GPU detected. Installing stable PyTorch with CUDA 12.1...
+    python -m pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+) else (
+    echo [INFO] RTX 50-series (Blackwell) detected. Installing PyTorch Nightly with CUDA 12.8...
+    python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+)
 
 echo.
 echo [INFO] Verifying installation...

@@ -227,6 +227,18 @@ async def upload_dataset(name: str = Form(...), files: List[UploadFile] = File(.
             
     return {"message": f"Uploaded {len(files)} files to {name}"}
 
+@app.delete("/api/datasets/{name}")
+async def delete_dataset(name: str):
+    dataset_path = os.path.join(DATASETS_DIR, name)
+    if not os.path.exists(dataset_path):
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    try:
+        shutil.rmtree(dataset_path)
+        return {"message": f"Dataset '{name}' deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting dataset: {str(e)}")
+
 @app.get("/api/outputs")
 async def list_outputs():
     outputs = []

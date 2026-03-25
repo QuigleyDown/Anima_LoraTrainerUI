@@ -415,10 +415,32 @@
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                         <button onclick="viewFiles('${d.name}')" class="text-blue-600 hover:text-blue-900">Explore</button>
                         <button onclick="triggerUpload('${d.name}')" class="text-green-600 hover:text-green-900">Add Files</button>
+                        <button onclick="deleteDataset('${d.name}')" class="text-red-600 hover:text-red-900">Delete</button>
                     </td>
                 `;
                 list.appendChild(row);
             });
+        }
+
+        async function deleteDataset(name) {
+            if (!confirm(`Are you sure you want to delete the dataset '${name}'? This action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/datasets/${name}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert(data.message);
+                    loadDatasets();
+                } else {
+                    alert('Error: ' + data.detail);
+                }
+            } catch (e) {
+                alert('Error deleting dataset: ' + e);
+            }
         }
 
         async function viewFiles(name) {

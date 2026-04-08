@@ -18,6 +18,6 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [INFO] Starting Anima Preview 2 LoRA Trainer...
+echo [INFO] Starting Anima LoRA Trainer...
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 pause

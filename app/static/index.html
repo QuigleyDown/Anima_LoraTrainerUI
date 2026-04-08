@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anima Preview 2 LoRA Trainer</title>
+    <title>Anima LoRA Trainer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .terminal {
@@ -32,7 +32,7 @@
 <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
         <header class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">Anima Preview 2 LoRA Trainer</h1>
+            <h1 class="text-3xl font-bold text-gray-800">Anima LoRA Trainer</h1>
             <p class="text-gray-600">Tailored LoRA training for the Anima image diffusion model</p>
         </header>
 
@@ -46,7 +46,7 @@
         <!-- Models Tab -->
         <div id="tab-models" class="tab-content">
             <div class="bg-white rounded-lg shadow p-6">
-                <h2 class="text-xl font-semibold mb-4">Anima Preview 2 Base Models</h2>
+                <h2 class="text-xl font-semibold mb-4">Anima Base Models</h2>
                 <p class="text-sm text-gray-500 mb-6">Enter a custom Hugging Face path (repo/filename) or a direct URL. Leave empty to use the official source.</p>
                 <div id="models-list" class="space-y-6">
                     <!-- Model status items with individual inputs and progress -->
@@ -100,6 +100,13 @@
                             <div class="col-span-2">
                                 <label class="block text-sm font-medium text-gray-700">Project Name</label>
                                 <input type="text" id="conf-name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium text-gray-700">Base Model</label>
+                                <select id="conf-base-model" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                                    <option value="anima-v2" selected>Anima Preview 2</option>
+                                    <option value="anima-v3">Anima Preview 3 Base</option>
+                                </select>
                             </div>
                             <div class="col-span-2">
                                 <label class="block text-sm font-medium text-gray-700">Training Type</label>
@@ -579,6 +586,7 @@
             const training_type = document.getElementById('conf-type').value;
             const config = {
                 name: document.getElementById('conf-name').value,
+                base_model: document.getElementById('conf-base-model').value,
                 training_type: training_type,
                 dataset_path: document.getElementById('conf-dataset').value,
                 optimizer: document.getElementById('conf-optimizer').value,

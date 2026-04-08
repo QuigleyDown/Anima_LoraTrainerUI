@@ -73,7 +73,7 @@ This document provides detailed instructions on installing, configuring, and usi
 
 ## 4. Configuration Settings Explained
 
-Anima Preview 2 uses a **Diffusion Transformer (DiT)** architecture with **Rectified Flow**, which differs from standard Stable Diffusion v1.5/XL.
+Anima uses a **Diffusion Transformer (DiT)** architecture with **Rectified Flow**, which differs from standard Stable Diffusion v1.5/XL.
 
 ### Core Settings
 - **Project Name**: The name used for the output folder and the `.safetensors` LoRA/Model file.

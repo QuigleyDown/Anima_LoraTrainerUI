@@ -19,7 +19,7 @@ from huggingface_hub import hf_hub_download
 import toml
 import threading
 
-app = FastAPI(title="Anima Preview 2 LoRA Trainer")
+app = FastAPI(title="Anima LoRA Trainer")
 
 # Directories
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -33,9 +33,13 @@ SD_SCRIPTS_DIR = os.path.join(BASE_DIR, "sd-scripts")
 # Model Info
 ANIMA_REPO = "circlestone-labs/Anima"
 REQUIRED_FILES = {
-    "dit": {
+    "anima-v2": {
         "filename": "anima-preview2.safetensors", 
         "url": f"https://huggingface.co/{ANIMA_REPO}/resolve/main/split_files/diffusion_models/anima-preview2.safetensors"
+    },
+    "anima-v3": {
+        "filename": "anima-preview3-base.safetensors", 
+        "url": f"https://huggingface.co/{ANIMA_REPO}/resolve/main/split_files/diffusion_models/anima-preview3-base.safetensors"
     },
     "qwen3": {
         "filename": "qwen_3_06b_base.safetensors", 
@@ -54,6 +58,7 @@ download_status = {} # model_key -> progress percentage
 
 class TrainingConfig(BaseModel):
     name: str
+    base_model: str = "anima-v2"
     training_type: str = "LoRA" # "LoRA" or "Full"
     rank: int = 32
     alpha: int = 16
@@ -305,6 +310,17 @@ async def start_training(config: TrainingConfig):
     else:
         script_path = os.path.join(SD_SCRIPTS_DIR, "anima_train_network.py")
 
+    base_model_filename = REQUIRED_FILES[config.base_model]["filename"]
+    
+    # Check if required models exist
+    missing_files = []
+    for key in [config.base_model, "qwen3", "vae"]:
+        if not os.path.exists(os.path.join(MODELS_DIR, REQUIRED_FILES[key]["filename"])):
+            missing_files.append(REQUIRED_FILES[key]["filename"])
+    
+    if missing_files:
+        raise HTTPException(status_code=400, detail=f"Missing required model files: {', '.join(missing_files)}. Please download them first in the Models tab.")
+
     cmd = [
         "accelerate", "launch",
         "--num_processes", "1",
@@ -312,7 +328,7 @@ async def start_training(config: TrainingConfig):
         "--mixed_precision", config.mixed_precision,
         "--dynamo_backend", "no",
         script_path,
-        "--pretrained_model_name_or_path", os.path.join(MODELS_DIR, REQUIRED_FILES["dit"]["filename"]),
+        "--pretrained_model_name_or_path", os.path.join(MODELS_DIR, base_model_filename),
         "--qwen3", os.path.join(MODELS_DIR, REQUIRED_FILES["qwen3"]["filename"]),
         "--vae", os.path.join(MODELS_DIR, REQUIRED_FILES["vae"]["filename"]),
         "--dataset_config", dataset_toml_path,

@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 echo ################################################
-echo # Anima Preview 2 LoRA Trainer - Installer      #
+echo # Anima LoRA Trainer - Installer              #
 echo ################################################
 
 :: Check for Python

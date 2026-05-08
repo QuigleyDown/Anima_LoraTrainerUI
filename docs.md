@@ -10,13 +10,17 @@ This document provides detailed instructions on installing, configuring, and usi
 - **GPU**: NVIDIA GPU is required. 
     - **Minimum**: 12GB VRAM (with `bf16` and `cache_latents` enabled).
     - **Recommended**: 16GB - 24GB VRAM for faster training and higher batch sizes.
+    - **Architecture Support**: 
+        - **RTX 50-Series (Blackwell)**: Fully supported via PyTorch Nightly and CUDA 12.8.
+        - **RTX 40-Series (Ada Lovelace)**: Optimized via CUDA 12.4.
+        - **RTX 30-Series (Ampere)**: Standard support via CUDA 12.1.
 - **Storage**: At least 20GB of free space (Base models ~10GB + Dependencies + Datasets/Outputs).
 - **RAM**: 16GB+ System RAM.
 
 ### Software
 - **Python**: 3.10 or newer.
 - **Git**: Required for cloning `sd-scripts`.
-- **Drivers**: Latest NVIDIA Drivers with CUDA support.
+- **Drivers**: Latest NVIDIA Drivers with CUDA support (version 550+ recommended for Blackwell).
 
 ---
 
@@ -26,10 +30,14 @@ This document provides detailed instructions on installing, configuring, and usi
 1. **Clone/Download** this repository to your desired folder.
 2. **Double-click `install.bat`**.
    - This script will create a `venv` (virtual environment).
-   - It will install PyTorch 2.5 with CUDA 12.1 support.
+   - **Automatic GPU Detection**: The installer detects your GPU and installs the best version of PyTorch:
+     - **RTX 50**: PyTorch Nightly + CUDA 12.8.
+     - **RTX 40**: PyTorch 2.5 + CUDA 12.4.
+     - **Others**: PyTorch 2.5 + CUDA 12.1.
    - It will clone the `sd-scripts` repository automatically.
    - It will install all necessary dependencies for both the trainer and the web UI.
 3. **Wait** for the process to finish. It may take several minutes depending on your internet speed.
+
 
 ### Linux Installation
 1. **Open a terminal** in the project directory.

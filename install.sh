@@ -45,13 +45,23 @@ echo "[INFO] Detecting GPU to determine PyTorch version..."
 GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null)
 echo "[INFO] Detected GPU: $GPU_NAME"
 
+# Clean uninstall to prevent version conflicts
+echo "[INFO] Ensuring clean environment..."
+python3 -m pip uninstall -y torch torchvision torchaudio xformers bitsandbytes
+
 if [[ "$GPU_NAME" == *"RTX 50"* ]] || [[ "$GPU_NAME" == *"Blackwell"* ]]; then
     echo "[INFO] RTX 50-series (Blackwell) detected. Installing PyTorch Nightly with CUDA 12.8..."
-    python3 -m pip install --upgrade --force-reinstall --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+    python3 -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+elif [[ "$GPU_NAME" == *"RTX 40"* ]] || [[ "$GPU_NAME" == *"Ada"* ]]; then
+    echo "[INFO] RTX 40-series (Ada Lovelace) detected. Installing PyTorch with CUDA 12.4..."
+    python3 -m pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu124
 else
     echo "[INFO] Standard GPU detected. Installing stable PyTorch with CUDA 12.1..."
-    python3 -m pip install --upgrade --force-reinstall torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+    python3 -m pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 fi
+
+echo "[INFO] Installing updated bitsandbytes for modern GPU support..."
+python3 -m pip install bitsandbytes>=0.43.0
 
 echo ""
 echo "[SUCCESS] Installation complete!"

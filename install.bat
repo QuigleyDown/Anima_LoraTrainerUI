@@ -49,15 +49,35 @@ echo [INFO] Detected GPU: %GPU_NAME%
 
 :: CLEAN UNINSTALL AND FORCE CUDA PYTORCH
 echo [INFO] Uninstalling existing torch packages to ensure clean CUDA install...
-python -m pip uninstall -y torch torchvision torchaudio xformers
+python -m pip uninstall -y torch torchvision torchaudio xformers bitsandbytes
 
-if "!GPU_NAME!"=="!GPU_NAME:RTX 50=!" if "!GPU_NAME!"=="!GPU_NAME:Blackwell=!" (
-    echo [INFO] Standard GPU detected. Installing stable PyTorch with CUDA 12.1...
-    python -m pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
-) else (
+set "INSTALL_CMD="
+
+:: Check for RTX 50-series (Blackwell)
+echo %GPU_NAME% | findstr /i "RTX.50 Blackwell" >nul
+if %errorlevel% equ 0 (
     echo [INFO] RTX 50-series (Blackwell) detected. Installing PyTorch Nightly with CUDA 12.8...
-    python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+    set INSTALL_CMD=python -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+    set "IS_NEW_GPU=1"
+) else (
+    :: Check for RTX 40-series (Ada Lovelace)
+    echo %GPU_NAME% | findstr /i "RTX.40 Ada" >nul
+    if %errorlevel% equ 0 (
+        echo [INFO] RTX 40-series (Ada Lovelace) detected. Installing PyTorch with CUDA 12.4...
+        set INSTALL_CMD=python -m pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu124
+        set "IS_NEW_GPU=1"
+    ) else (
+        echo [INFO] Standard GPU detected. Installing stable PyTorch with CUDA 12.1...
+        set INSTALL_CMD=python -m pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+        set "IS_NEW_GPU=0"
+    )
 )
+
+echo [INFO] Executing: %INSTALL_CMD%
+%INSTALL_CMD%
+
+echo [INFO] Installing updated bitsandbytes for modern GPU support...
+python -m pip install bitsandbytes>=0.43.0
 
 echo.
 echo [INFO] Verifying installation...

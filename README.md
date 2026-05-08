@@ -12,6 +12,7 @@ A simple, automated web application for training LoRA models for the **Anima** i
 - **Advanced Optimizer Support**: Choose from AdamW8bit, Lion, Prodigy, DAdaptation, and more.
 - **Tailored Configuration**: Optimized defaults for Anima training (Rank, Alpha, Learning Rate, Flow Shift, etc.).
 - **Real-time Monitoring**: Live terminal output of the training process.
+- **GPU Optimized**: Automatic environment setup for RTX 30, 40 (Ada), and 50 (Blackwell) series cards.
 - **Cross-Platform**: Works on Windows and Linux.
 
 ## Requirements

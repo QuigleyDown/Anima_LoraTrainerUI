@@ -10,6 +10,9 @@ import subprocess
 import signal
 import json
 import shutil
+import zipfile
+import io
+import tempfile
 from typing import List, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse, FileResponse
@@ -231,6 +234,61 @@ async def upload_dataset(name: str = Form(...), files: List[UploadFile] = File(.
             shutil.copyfileobj(file.file, buffer)
             
     return {"message": f"Uploaded {len(files)} files to {name}"}
+
+@app.post("/api/datasets/upload-zip")
+async def upload_dataset_zip(name: str = Form(...), file: UploadFile = File(...)):
+    dataset_path = os.path.join(DATASETS_DIR, name)
+    os.makedirs(dataset_path, exist_ok=True)
+    
+    try:
+        content = await file.read()
+        with zipfile.ZipFile(io.BytesIO(content)) as zip_ref:
+            zip_ref.extractall(dataset_path)
+        return {"message": f"Successfully extracted zip to {name}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error extracting zip: {str(e)}")
+
+class DownloadDatasetRequest(BaseModel):
+    name: str
+    url: str
+
+@app.post("/api/datasets/download-zip")
+async def download_dataset_zip(req: DownloadDatasetRequest, background_tasks: BackgroundTasks):
+    dataset_path = os.path.join(DATASETS_DIR, req.name)
+    os.makedirs(dataset_path, exist_ok=True)
+    
+    loop = asyncio.get_running_loop()
+    background_tasks.add_task(do_download_dataset_sync, req.name, req.url, loop)
+    
+    return {"message": f"Download of dataset {req.name} started. Check the Training tab for logs."}
+
+def do_download_dataset_sync(name: str, url: str, loop):
+    """Synchronous download and extract function run in a thread."""
+    try:
+        dataset_path = os.path.join(DATASETS_DIR, name)
+        asyncio.run_coroutine_threadsafe(log_to_ui(f"Downloading dataset {name} from: {url}"), loop)
+        
+        import requests
+        response = requests.get(url, stream=True, allow_redirects=True)
+        if response.status_code != 200:
+            raise Exception(f"Server returned status code {response.status_code}")
+            
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_file:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    tmp_file.write(chunk)
+            tmp_path = tmp_file.name
+            
+        asyncio.run_coroutine_threadsafe(log_to_ui(f"Download complete. Extracting to {dataset_path}..."), loop)
+        
+        with zipfile.ZipFile(tmp_path) as zip_ref:
+            zip_ref.extractall(dataset_path)
+            
+        os.unlink(tmp_path)
+        asyncio.run_coroutine_threadsafe(log_to_ui(f"Successfully downloaded and extracted dataset {name}"), loop)
+    except Exception as e:
+        asyncio.run_coroutine_threadsafe(log_to_ui(f"Error downloading dataset {name}: {str(e)}"), loop)
+
 
 @app.delete("/api/datasets/{name}")
 async def delete_dataset(name: str):

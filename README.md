@@ -1,11 +1,11 @@
 # Anima LoRA Trainer
 
-A simple, automated web application for training LoRA models for the **Anima** image diffusion model. This app streamlines the setup, model downloading, dataset management, and training process using the `sd-scripts` project. It supports both **Anima Preview 2** and **Anima Preview 3 Base** models.
+A simple, automated web application for training LoRA models for the **Anima** image diffusion model. This app streamlines the setup, model downloading, dataset management, and training process using the `sd-scripts` project. It supports **Anima Base 1.0**, **Anima Preview 2**, and **Anima Preview 3 Base** models.
 
 ## Features
 
 - **One-Click Installation**: Automated scripts for Windows and Linux.
-- **Support for Multiple Base Models**: Easily switch between Anima Preview 2 and Preview 3.
+- **Support for Multiple Base Models**: Easily switch between Anima Base 1.0, Preview 2 and Preview 3.
 - **LoRA & Full Finetuning**: Support for both Low-Rank Adaptation and full model weight updates.
 - **Model Management**: Easy download of required base models (DiT, Qwen3, VAE) from Hugging Face.
 - **Dataset Management**: Upload images and captions directly through the web UI.
@@ -45,7 +45,7 @@ A simple, automated web application for training LoRA models for the **Anima** i
    - Upload your images (and optionally `.txt` caption files with the same name as the images).
 5. **Configure & Train**:
    - Go to the **Training** tab.
-   - Select your base model (Preview 2 or 3).
+   - Select your base model (Base 1.0, Preview 2, or Preview 3).
    - Select your uploaded dataset.
    - Adjust settings if needed (defaults are optimized for Anima).
    - Click **Start Training**.

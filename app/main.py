@@ -36,19 +36,28 @@ SD_SCRIPTS_DIR = os.path.join(BASE_DIR, "sd-scripts")
 # Model Info
 ANIMA_REPO = "circlestone-labs/Anima"
 REQUIRED_FILES = {
+    "anima-v1": {
+        "name": "Anima Base 1.0",
+        "filename": "anima-base-v1.0.safetensors", 
+        "url": f"https://huggingface.co/{ANIMA_REPO}/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors"
+    },
     "anima-v2": {
+        "name": "Anima Preview 2",
         "filename": "anima-preview2.safetensors", 
         "url": f"https://huggingface.co/{ANIMA_REPO}/resolve/main/split_files/diffusion_models/anima-preview2.safetensors"
     },
     "anima-v3": {
+        "name": "Anima Preview 3 Base",
         "filename": "anima-preview3-base.safetensors", 
         "url": f"https://huggingface.co/{ANIMA_REPO}/resolve/main/split_files/diffusion_models/anima-preview3-base.safetensors"
     },
     "qwen3": {
+        "name": "Qwen 3 Text Encoder",
         "filename": "qwen_3_06b_base.safetensors", 
         "url": f"https://huggingface.co/{ANIMA_REPO}/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors"
     },
     "vae": {
+        "name": "Anima VAE",
         "filename": "qwen_image_vae.safetensors", 
         "url": f"https://huggingface.co/{ANIMA_REPO}/resolve/main/split_files/vae/qwen_image_vae.safetensors"
     }
@@ -61,7 +70,7 @@ download_status = {} # model_key -> progress percentage
 
 class TrainingConfig(BaseModel):
     name: str
-    base_model: str = "anima-v2"
+    base_model: str = "anima-v1"
     training_type: str = "LoRA" # "LoRA" or "Full"
     rank: int = 32
     alpha: int = 16
